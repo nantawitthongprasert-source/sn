@@ -1,0 +1,933 @@
+<!doctype html>
+<html lang="th" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบลากลับบ้านระหว่างวัน</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/_sdk/data_sdk.js"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body {
+      box-sizing: border-box;
+      font-family: 'Sarabun', sans-serif;
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .gradient-bg {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      transition: all 0.3s ease;
+    }
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+    }
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .btn-success {
+      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    }
+    .btn-danger {
+      background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+    }
+    .status-pending {
+      background: linear-gradient(135deg, #f5af19 0%, #f12711 100%);
+    }
+    .status-approved {
+      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    }
+    .status-rejected {
+      background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+    }
+    .input-field {
+      transition: all 0.3s ease;
+      border: 2px solid #e2e8f0;
+    }
+    .input-field:focus {
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+    }
+    .fade-in {
+      animation: fadeIn 0.5s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .toast {
+      animation: slideIn 0.5s ease-out;
+    }
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .card-hover {
+      transition: all 0.3s ease;
+    }
+    .card-hover:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    }
+    .spinner {
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-top: 3px solid white;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+ </head>
+ <body class="h-full gradient-bg">
+  <div id="app" class="h-full overflow-auto"><!-- Toast Notification -->
+   <div id="toast" class="fixed top-4 right-4 z-50 hidden">
+    <div class="glass-card rounded-xl px-6 py-4 shadow-2xl flex items-center gap-3 toast"><span id="toast-icon" class="text-2xl">✅</span> <span id="toast-message" class="font-medium text-gray-800"></span>
+    </div>
+   </div><!-- หน้า Login -->
+   <div id="login-page" class="min-h-full flex items-center justify-center p-4">
+    <div class="glass-card rounded-3xl shadow-2xl p-8 w-full max-w-md fade-in">
+     <div class="text-center mb-8">
+      <div class="w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg"><span class="text-4xl">🏫</span>
+      </div>
+      <h1 id="school-name-display" class="text-2xl font-bold text-gray-800 mb-2">โรงเรียนตัวอย่าง</h1>
+      <p id="system-title-display" class="text-gray-600">ระบบลากลับบ้านระหว่างวัน</p>
+     </div><!-- Tab เลือกประเ�����ทผู้ใช้ -->
+     <div class="flex bg-gray-100 rounded-xl p-1 mb-6"><button id="tab-student" onclick="switchLoginTab('student')" class="flex-1 py-3 rounded-lg font-medium transition-all bg-white shadow text-purple-600"> 🎓 นักเรียน </button> <button id="tab-teacher" onclick="switchLoginTab('teacher')" class="flex-1 py-3 rounded-lg font-medium transition-all text-gray-500"> 👨‍🏫 ครู/บุคลากร </button>
+     </div><!-- ฟอร์ม Login นักเรียน -->
+     <form id="student-login-form" onsubmit="handleStudentLogin(event)" class="space-y-4">
+      <div><label class="block text-sm font-medium text-gray-700 mb-2">เลขประจำตัวนักเรียน</label> <input type="text" id="student-id-input" placeholder="เช่น 12345" class="input-field w-full px-4 py-3 rounded-xl outline-none" required>
+      </div>
+      <div><label class="block text-sm font-medium text-gray-700 mb-2">เลขประจำตัวประชาชน 4 ตัวท้าย</label> <input type="password" id="student-id-card" placeholder="เช่น 1234" maxlength="4" class="input-field w-full px-4 py-3 rounded-xl outline-none" required>
+      </div><button type="submit" class="btn-primary w-full py-4 rounded-xl text-white font-semibold text-lg shadow-lg"> เข้าสู่ระบบ </button>
+      <p id="student-login-error" class="text-red-500 text-sm text-center hidden"></p>
+     </form><!-- ฟอร์ม Login ครู -->
+     <form id="teacher-login-form" onsubmit="handleTeacherLogin(event)" class="space-y-4 hidden">
+      <div><label class="block text-sm font-medium text-gray-700 mb-2">ชื่อผู้ใช้</label> <input type="text" id="teacher-username" placeholder="username" class="input-field w-full px-4 py-3 rounded-xl outline-none" required>
+      </div>
+      <div><label class="block text-sm font-medium text-gray-700 mb-2">รหัสผ่าน</label> <input type="password" id="teacher-password" placeholder="password" class="input-field w-full px-4 py-3 rounded-xl outline-none" required>
+      </div><button type="submit" class="btn-primary w-full py-4 rounded-xl text-white font-semibold text-lg shadow-lg"> เข้าสู่ระบบ </button>
+      <p id="teacher-login-error" class="text-red-500 text-sm text-center hidden"></p>
+      <div class="text-center text-sm text-gray-500 mt-4 p-3 bg-gray-50 rounded-lg">
+       <p class="font-medium mb-1">บัญชีทดสอบ:</p>
+       <p>Username: <span class="font-mono bg-gray-200 px-2 py-1 rounded">admin</span></p>
+       <p>Password: <span class="font-mono bg-gray-200 px-2 py-1 rounded">1234</span></p>
+      </div>
+     </form>
+    </div>
+   </div><!-- หน้านักเรียน -->
+   <div id="student-page" class="min-h-full hidden"><!-- Header -->
+    <header class="glass-card sticky top-0 z-40 px-4 py-3 shadow-lg">
+     <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3"><span class="text-2xl">🎓</span>
+       <div>
+        <p class="font-semibold text-gray-800" id="student-welcome">สวัสดี</p>
+        <p class="text-sm text-gray-500" id="student-id-display">รหัส:</p>
+       </div>
+      </div><button onclick="logout()" class="px-4 py-2 rounded-lg bg-red-100 text-red-600 font-medium hover:bg-red-200 transition-all"> ออกจากระบบ </button>
+     </div>
+    </header><!-- Navigation -->
+    <nav class="glass-card px-4 py-2 shadow">
+     <div class="max-w-4xl mx-auto flex gap-6"><button onclick="showStudentSection('request')" class="py-2 font-medium text-purple-600 border-b-2 border-purple-600" id="nav-request"> 📝 ขอลา </button> <button onclick="showStudentSection('history')" class="py-2 font-medium text-gray-600" id="nav-history"> 📋 ประวัติการลา </button>
+     </div>
+    </nav><!-- Content -->
+    <main class="max-w-4xl mx-auto p-4"><!-- ส่วนขอลา -->
+     <section id="section-request" class="fade-in">
+      <div class="glass-card rounded-2xl p-6 shadow-xl">
+       <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2"><span class="text-2xl">📝</span> แบบฟอร์มขอลากลับบ้าน</h2>
+       <form id="leave-form" onsubmit="submitLeaveRequest(event)" class="space-y-6"><!-- ข้อมูลนักเรียน -->
+        <div class="bg-purple-50 rounded-xl p-4">
+         <h3 class="font-semibold text-purple-800 mb-3">👤 ข้อมูล��ักเรียน</h3>
+         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">ชื่อ-นามสกุล</label> <input type="text" id="form-student-name" class="input-field w-full px-4 py-2 rounded-lg outline-none" required>
+          </div>
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">ชั้น/ห้อง</label> <input type="text" id="form-student-class" placeholder="เช่น ม.3/1" class="input-field w-full px-4 py-2 rounded-lg outline-none" required>
+          </div>
+         </div>
+        </div><!-- ข้อมูลการลา -->
+        <div class="bg-blue-50 rounded-xl p-4">
+         <h3 class="font-semibold text-blue-800 mb-3">📅 รายละเอียดการลา</h3>
+         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">วันที่ลา</label> <input type="date" id="form-leave-date" class="input-field w-full px-4 py-2 rounded-lg outline-none" required>
+          </div>
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">เวลาออก</label> <input type="time" id="form-leave-time" class="input-field w-full px-4 py-2 rounded-lg outline-none" required>
+          </div>
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">เวลากลับ (ถ้ามี)</label> <input type="time" id="form-return-time" class="input-field w-full px-4 py-2 rounded-lg outline-none">
+          </div>
+         </div>
+         <div class="mt-4"><label class="block text-sm font-medium text-gray-700 mb-1">เหตุผลในการลา</label> <textarea id="form-reason" rows="3" placeholder="ระบุเหตุผล..." class="input-field w-full px-4 py-2 rounded-lg outline-none resize-none" required></textarea>
+         </div>
+        </div><!-- ข้อมูลผู้ปกครอง -->
+        <div class="bg-green-50 rounded-xl p-4">
+         <h3 class="font-semibold text-green-800 mb-3">👨‍👩‍👧 ข้อมูลผู้ปกครองที่มารับ</h3>
+         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">ชื่อผู้ปกครอง</label> <input type="text" id="form-guardian-name" class="input-field w-full px-4 py-2 rounded-lg outline-none" required>
+          </div>
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">ความสัมพันธ์</label> <select id="form-guardian-relation" class="input-field w-full px-4 py-2 rounded-lg outline-none" required> <option value="">เลือก...</option> <option value="บิดา">บิดา</option> <option value="มารดา">มารดา</option> <option value="ปู่/ย่า">ปู่/ย่า</option> <option value="ตา/ยาย">ตา/ยาย</option> <option value="ญาติ">ญาติ</option> <option value="อื่นๆ">อื่นๆ</option> </select>
+          </div>
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">เบอร์โทร</label> <input type="tel" id="form-guardian-phone" placeholder="08x-xxx-xxxx" class="input-field w-full px-4 py-2 rounded-lg outline-none" required>
+          </div>
+         </div><!-- อัพโหลดรูปภาพ -->
+         <div class="mt-4"><label class="block text-sm font-medium text-gray-700 mb-2">📷 รูปถ่ายผู้ปกครองที่มารับ (ไม่บังคับ)</label>
+          <div id="image-upload-area" class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer hover:border-purple-500 transition-all"><input type="file" id="form-guardian-image" accept="image/*" class="hidden" onchange="previewImage(event)">
+           <div id="image-placeholder" onclick="document.getElementById('form-guardian-image').click()"><span class="text-4xl">📷</span>
+            <p class="text-gray-500 mt-2">คลิกเพื่ออัพโหลดรูปภาพ</p>
+            <p class="text-sm text-gray-400">หรือลากไฟล์มาวางที่นี่</p>
+           </div>
+           <div id="image-preview" class="hidden"><img id="preview-img" class="max-h-48 mx-auto rounded-lg shadow" alt="ตัวอย่างรูปภาพ"> <button type="button" onclick="removeImage()" class="mt-2 text-red-500 text-sm hover:underline"> ❌ ลบรูปภาพ </button>
+           </div>
+          </div>
+         </div>
+        </div><button type="submit" id="submit-btn" class="btn-primary w-full py-4 rounded-xl text-white font-semibold text-lg shadow-lg flex items-center justify-center gap-2"> <span>📤</span> ส่งคำขอลา </button>
+       </form>
+      </div>
+     </section><!-- ส่วนประวัติ -->
+     <section id="section-history" class="fade-in hidden">
+      <div class="glass-card rounded-2xl p-6 shadow-xl">
+       <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2"><span class="text-2xl">📋</span> ประวัติการลาของฉัน</h2>
+       <div id="student-history-list" class="space-y-4"><!-- จะแสดงรายการที่นี่ -->
+       </div>
+       <div id="student-history-empty" class="text-center py-12 text-gray-500 hidden"><span class="text-6xl">📭</span>
+        <p class="mt-4 text-lg">ยังไม่มีประวัติการลา</p>
+       </div>
+      </div>
+     </section>
+    </main>
+   </div><!-- หน้าครู/Admin -->
+   <div id="admin-page" class="min-h-full hidden"><!-- Header -->
+    <header class="glass-card sticky top-0 z-40 px-4 py-3 shadow-lg">
+     <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3"><span class="text-2xl">👨‍🏫</span>
+       <div>
+        <p class="font-semibold text-gray-800" id="admin-welcome">ระบบหลังบ้าน</p>
+        <p class="text-sm text-gray-500">จัดการคำขอลากลับบ้าน</p>
+       </div>
+      </div><button onclick="logout()" class="px-4 py-2 rounded-lg bg-red-100 text-red-600 font-medium hover:bg-red-200 transition-all"> ออกจากระบบ </button>
+     </div>
+    </header><!-- Navigation -->
+    <nav class="glass-card px-4 py-2 shadow">
+     <div class="max-w-6xl mx-auto flex gap-6"><button onclick="showAdminSection('pending')" class="py-2 font-medium text-purple-600 border-b-2 border-purple-600" id="admin-nav-pending"> 🔔 ตรวจสอบคำข��� <span id="pending-badge" class="ml-1 px-2 py-0.5 bg-red-500 text-white text-xs rounded-full hidden">0</span> </button> <button onclick="showAdminSection('all')" class="py-2 font-medium text-gray-600" id="admin-nav-all"> 📊 ข้อมูลทั้งหมด </button>
+     </div>
+    </nav><!-- Content -->
+    <main class="max-w-6xl mx-auto p-4"><!-- สถิติ -->
+     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div class="glass-card rounded-xl p-4 text-center card-hover"><span class="text-3xl">📋</span>
+       <p class="text-2xl font-bold text-gray-800 mt-2" id="stat-total">0</p>
+       <p class="text-sm text-gray-500">ทั้งหมด</p>
+      </div>
+      <div class="glass-card rounded-xl p-4 text-center card-hover"><span class="text-3xl">⏳</span>
+       <p class="text-2xl font-bold text-yellow-600 mt-2" id="stat-pending">0</p>
+       <p class="text-sm text-gray-500">รอตรวจสอบ</p>
+      </div>
+      <div class="glass-card rounded-xl p-4 text-center card-hover"><span class="text-3xl">✅</span>
+       <p class="text-2xl font-bold text-green-600 mt-2" id="stat-approved">0</p>
+       <p class="text-sm text-gray-500">อนุมัติแล้ว</p>
+      </div>
+      <div class="glass-card rounded-xl p-4 text-center card-hover"><span class="text-3xl">❌</span>
+       <p class="text-2xl font-bold text-red-600 mt-2" id="stat-rejected">0</p>
+       <p class="text-sm text-gray-500">ไม่อนุมัติ</p>
+      </div>
+     </div><!-- ส่วนรอตรวจสอบ -->
+     <section id="admin-section-pending" class="fade-in">
+      <div class="glass-card rounded-2xl p-6 shadow-xl">
+       <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2"><span class="text-2xl">🔔</span> คำขอรอตรวจสอบ</h2>
+       <div id="pending-list" class="space-y-4"><!-- จะแสดงรายการที่นี่ -->
+       </div>
+       <div id="pending-empty" class="text-center py-12 text-gray-500 hidden"><span class="text-6xl">✨</span>
+        <p class="mt-4 text-lg">ไม่มีคำขอรอตรวจสอบ</p>
+       </div>
+      </div>
+     </section><!-- ส่วนข้อมูลทั้งหมด -->
+     <section id="admin-section-all" class="fade-in hidden">
+      <div class="glass-card rounded-2xl p-6 shadow-xl">
+       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2"><span class="text-2xl">📊</span> ข้อมูลการลาทั้งหมด</h2>
+        <div class="flex gap-2"><input type="text" id="search-input" placeholder="🔍 ค้นหาชื่อ/รหัส..." class="input-field px-4 py-2 rounded-lg outline-none" onkeyup="filterAllRecords()"> <select id="filter-status" class="input-field px-4 py-2 rounded-lg outline-none" onchange="filterAllRecords()"> <option value="all">ทุก��ถานะ</option> <option value="pending">รอตรวจสอบ</option> <option value="approved">อนุมัติแล้ว</option> <option value="rejected">ไม่อนุมัติ</option> </select>
+        </div>
+       </div>
+       <div id="all-records-list" class="space-y-4"><!-- จะแสดงรายการที่นี่ -->
+       </div>
+       <div id="all-records-empty" class="text-center py-12 text-gray-500 hidden"><span class="text-6xl">📭</span>
+        <p class="mt-4 text-lg">ยังไม่มีข้อมูลการลา</p>
+       </div>
+      </div>
+     </section>
+    </main>
+   </div><!-- Modal ดูรายละเอียด -->
+   <div id="detail-modal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeDetailModal()"></div>
+    <div class="absolute inset-4 md:inset-10 overflow-auto">
+     <div class="glass-card rounded-2xl p-6 max-w-2xl mx-auto my-4 relative"><button onclick="closeDetailModal()" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center"> ✕ </button>
+      <div id="detail-content"><!-- รายละเอียดจะแสดงที่นี่ -->
+      </div>
+     </div>
+    </div>
+   </div><!-- Modal ไม่อนุมัติ -->
+   <div id="reject-modal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeRejectModal()"></div>
+    <div class="absolute inset-4 flex items-center justify-center">
+     <div class="glass-card rounded-2xl p-6 w-full max-w-md">
+      <h3 class="text-xl font-bold text-gray-800 mb-4">❌ ไม่อนุมัติคำขอ</h3><textarea id="reject-note" rows="4" placeholder="ระบุเหตุผลที่ไม่อนุมัติ..." class="input-field w-full px-4 py-3 rounded-xl outline-none resize-none mb-4"></textarea>
+      <div class="flex gap-3"><button onclick="closeRejectModal()" class="flex-1 py-3 rounded-xl bg-gray-200 font-medium hover:bg-gray-300 transition-all"> ยกเลิก </button> <button onclick="confirmReject()" class="flex-1 py-3 rounded-xl btn-danger text-white font-medium"> ยืนยันไม่อนุมัติ </button>
+      </div>
+     </div>
+    </div>
+   </div>
+  </div>
+  <script>
+    // ==================== State Management ====================
+    let allRecords = [];
+    let currentUser = null;
+    let currentUserType = null;
+    let selectedRecordId = null;
+    let guardianImageData = null;
+
+    // บัญชีครู/admin
+    const adminAccounts = [
+      { username: 'admin', password: '1234', name: 'ผู้ดูแลระบบ' },
+      { username: 'teacher1', password: '1234', name: 'คุณครูสมศรี' },
+      { username: 'teacher2', password: '1234', name: 'คุณครูสมชาย' }
+    ];
+
+    // Default Config
+    const defaultConfig = {
+      school_name: 'โรงเรียนตัวอย่าง',
+      system_title: 'ระบบลากลับบ้านระหว่างวัน'
+    };
+
+    let config = { ...defaultConfig };
+
+    // ==================== SDK Initialization ====================
+    const dataHandler = {
+      onDataChanged(data) {
+        allRecords = data || [];
+        updateUI();
+      }
+    };
+
+    async function initApp() {
+      // Initialize Element SDK
+      if (window.elementSdk) {
+        window.elementSdk.init({
+          defaultConfig,
+          onConfigChange: async (newConfig) => {
+            config = { ...defaultConfig, ...newConfig };
+            applyConfig();
+          },
+          mapToCapabilities: (cfg) => ({
+            recolorables: [],
+            borderables: [],
+            fontEditable: undefined,
+            fontSizeable: undefined
+          }),
+          mapToEditPanelValues: (cfg) => new Map([
+            ['school_name', cfg.school_name || defaultConfig.school_name],
+            ['system_title', cfg.system_title || defaultConfig.system_title]
+          ])
+        });
+      }
+
+      // Initialize Data SDK
+      if (window.dataSdk) {
+        const initResult = await window.dataSdk.init(dataHandler);
+        if (!initResult.isOk) {
+          showToast('เกิดข้อผิดพลาดในการ���ริ่มต้��ระบบ', '⚠️');
+        }
+      }
+
+      // Set default date
+      const dateInput = document.getElementById('form-leave-date');
+      if (dateInput) {
+        dateInput.valueAsDate = new Date();
+      }
+      
+      applyConfig();
+    }
+
+    function applyConfig() {
+      const schoolName = config.school_name || defaultConfig.school_name;
+      const systemTitle = config.system_title || defaultConfig.system_title;
+      
+      const schoolEl = document.getElementById('school-name-display');
+      const titleEl = document.getElementById('system-title-display');
+      
+      if (schoolEl) schoolEl.textContent = schoolName;
+      if (titleEl) titleEl.textContent = systemTitle;
+    }
+
+    // ==================== Authentication ====================
+    function switchLoginTab(type) {
+      const studentTab = document.getElementById('tab-student');
+      const teacherTab = document.getElementById('tab-teacher');
+      const studentForm = document.getElementById('student-login-form');
+      const teacherForm = document.getElementById('teacher-login-form');
+
+      if (type === 'student') {
+        studentTab.className = 'flex-1 py-3 rounded-lg font-medium transition-all bg-white shadow text-purple-600';
+        teacherTab.className = 'flex-1 py-3 rounded-lg font-medium transition-all text-gray-500';
+        studentForm.classList.remove('hidden');
+        teacherForm.classList.add('hidden');
+      } else {
+        teacherTab.className = 'flex-1 py-3 rounded-lg font-medium transition-all bg-white shadow text-purple-600';
+        studentTab.className = 'flex-1 py-3 rounded-lg font-medium transition-all text-gray-500';
+        teacherForm.classList.remove('hidden');
+        studentForm.classList.add('hidden');
+      }
+    }
+
+    function handleStudentLogin(e) {
+      e.preventDefault();
+      const studentId = document.getElementById('student-id-input').value.trim();
+      const idCard = document.getElementById('student-id-card').value.trim();
+
+      if (studentId.length < 3) {
+        showLoginError('student', 'กรุณากรอกเลขประจำตัวนักเรียนให้ถูกต้อง');
+        return;
+      }
+      if (idCard.length !== 4) {
+        showLoginError('student', 'กรุณากรอกเลขประชาชน 4 ตัวท้าย');
+        return;
+      }
+
+      currentUser = { studentId, idCard };
+      currentUserType = 'student';
+      
+      document.getElementById('login-page').classList.add('hidden');
+      document.getElementById('student-page').classList.remove('hidden');
+      document.getElementById('student-welcome').textContent = 'สวัสดี นักเรียน';
+      document.getElementById('student-id-display').textContent = `รหัส: ${studentId}`;
+      
+      showToast('เข้าสู่ระบบสำเร็จ', '✅');
+      updateUI();
+    }
+
+    function handleTeacherLogin(e) {
+      e.preventDefault();
+      const username = document.getElementById('teacher-username').value.trim();
+      const password = document.getElementById('teacher-password').value;
+
+      const account = adminAccounts.find(a => a.username === username && a.password === password);
+      
+      if (!account) {
+        showLoginError('teacher', 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+        return;
+      }
+
+      currentUser = account;
+      currentUserType = 'admin';
+      
+      document.getElementById('login-page').classList.add('hidden');
+      document.getElementById('admin-page').classList.remove('hidden');
+      document.getElementById('admin-welcome').textContent = `สวัสดี ${account.name}`;
+      
+      showToast('เข้าสู���ระบบสำเร็จ', '✅');
+      updateUI();
+    }
+
+    function showLoginError(type, message) {
+      const errorEl = document.getElementById(`${type}-login-error`);
+      errorEl.textContent = message;
+      errorEl.classList.remove('hidden');
+      setTimeout(() => errorEl.classList.add('hidden'), 3000);
+    }
+
+    function logout() {
+      currentUser = null;
+      currentUserType = null;
+      guardianImageData = null;
+      
+      document.getElementById('login-page').classList.remove('hidden');
+      document.getElementById('student-page').classList.add('hidden');
+      document.getElementById('admin-page').classList.add('hidden');
+      
+      document.getElementById('student-login-form').reset();
+      document.getElementById('teacher-login-form').reset();
+      document.getElementById('leave-form').reset();
+      
+      const dateInput = document.getElementById('form-leave-date');
+      if (dateInput) {
+        dateInput.valueAsDate = new Date();
+      }
+      removeImage();
+      
+      showToast('ออกจากระบบแล้ว', '👋');
+    }
+
+    // ==================== Navigation ====================
+    function showStudentSection(section) {
+      document.querySelectorAll('[id^="section-"]').forEach(el => el.classList.add('hidden'));
+      const sectionEl = document.getElementById(`section-${section}`);
+      if (sectionEl) sectionEl.classList.remove('hidden');
+      
+      document.getElementById('nav-request').className = 'py-2 font-medium text-gray-600';
+      document.getElementById('nav-history').className = 'py-2 font-medium text-gray-600';
+      
+      const navEl = document.getElementById(`nav-${section}`);
+      if (navEl) {
+        navEl.className = 'py-2 font-medium text-purple-600 border-b-2 border-purple-600';
+      }
+    }
+
+    function showAdminSection(section) {
+      document.querySelectorAll('[id^="admin-section-"]').forEach(el => el.classList.add('hidden'));
+      const sectionEl = document.getElementById(`admin-section-${section}`);
+      if (sectionEl) sectionEl.classList.remove('hidden');
+      
+      document.getElementById('admin-nav-pending').className = 'py-2 font-medium text-gray-600';
+      document.getElementById('admin-nav-all').className = 'py-2 font-medium text-gray-600';
+      
+      const navEl = document.getElementById(`admin-nav-${section}`);
+      if (navEl) {
+        navEl.className = 'py-2 font-medium text-purple-600 border-b-2 border-purple-600';
+      }
+    }
+
+    // ==================== Leave Request ====================
+    function previewImage(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          guardianImageData = event.target.result;
+          document.getElementById('preview-img').src = guardianImageData;
+          document.getElementById('image-placeholder').classList.add('hidden');
+          document.getElementById('image-preview').classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function removeImage() {
+      guardianImageData = null;
+      const fileInput = document.getElementById('form-guardian-image');
+      if (fileInput) fileInput.value = '';
+      document.getElementById('image-placeholder').classList.remove('hidden');
+      document.getElementById('image-preview').classList.add('hidden');
+    }
+
+    async function submitLeaveRequest(e) {
+      e.preventDefault();
+      
+      if (!currentUser || currentUserType !== 'student') {
+        showToast('กรุณาเข้าสู่ระบบก่อน', '⚠️');
+        return;
+      }
+
+      if (allRecords.length >= 999) {
+        showToast('ระบบเต็ม ไม่สามารถส่งคำขอเพิ่มได้', '⚠️');
+        return;
+      }
+
+      const submitBtn = document.getElementById('submit-btn');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<div class="spinner"></div> <span>กำลังส่ง...</span>';
+
+      const newRequest = {
+        student_id: currentUser.studentId,
+        student_name: document.getElementById('form-student-name').value.trim(),
+        student_class: document.getElementById('form-student-class').value.trim(),
+        leave_date: document.getElementById('form-leave-date').value,
+        leave_time: document.getElementById('form-leave-time').value,
+        return_time: document.getElementById('form-return-time').value || 'ไม่ระบุ',
+        reason: document.getElementById('form-reason').value.trim(),
+        guardian_name: document.getElementById('form-guardian-name').value.trim(),
+        guardian_relation: document.getElementById('form-guardian-relation').value,
+        guardian_phone: document.getElementById('form-guardian-phone').value.trim(),
+        guardian_image: guardianImageData || 'ไม่มีรูปภาพ',
+        status: 'pending',
+        reject_note: 'ไม่มี',
+        approved_by: 'ไม่มี',
+        approved_at: 'ไม่มี',
+        created_at: new Date().toISOString()
+      };
+
+      const result = await window.dataSdk.create(newRequest);
+
+      if (result.isOk) {
+        showToast('ส่งคำขอลาสำเร็จ! 🎉', '✅');
+        document.getElementById('leave-form').reset();
+        document.getElementById('form-leave-date').valueAsDate = new Date();
+        removeImage();
+        setTimeout(() => showStudentSection('history'), 800);
+      } else {
+        showToast('ส่งไม่สำเร็จ: ' + (result.error.message || 'กรุณาลองใหม่'), '❌');
+        console.error('Create error:', result.error);
+      }
+
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<span>📤</span> ส่งคำขอลา';
+    }
+
+    // ==================== Admin Actions ====================
+    async function approveRequest(recordId) {
+      const record = allRecords.find(r => r.__backendId === recordId);
+      if (!record) return;
+
+      const updatedRecord = {
+        ...record,
+        status: 'approved',
+        approved_by: currentUser.name,
+        approved_at: new Date().toISOString()
+      };
+
+      const result = await window.dataSdk.update(updatedRecord);
+      if (result.isOk) {
+        showToast('อนุมัติคำขอเรียบร้อย', '✅');
+        closeDetailModal();
+      } else {
+        showToast('เกิดข้อผิดพลาด', '❌');
+      }
+    }
+
+    function openRejectModal(recordId) {
+      selectedRecordId = recordId;
+      document.getElementById('reject-note').value = '';
+      document.getElementById('reject-modal').classList.remove('hidden');
+    }
+
+    function closeRejectModal() {
+      selectedRecordId = null;
+      document.getElementById('reject-modal').classList.add('hidden');
+    }
+
+    async function confirmReject() {
+      if (!selectedRecordId) return;
+
+      const record = allRecords.find(r => r.__backendId === selectedRecordId);
+      if (!record) return;
+
+      const rejectNote = document.getElementById('reject-note').value.trim();
+      if (!rejectNote) {
+        showToast('กรุณาระบุเหตุผล', '⚠️');
+        return;
+      }
+
+      const updatedRecord = {
+        ...record,
+        status: 'rejected',
+        reject_note: rejectNote,
+        approved_by: currentUser.name,
+        approved_at: new Date().toISOString()
+      };
+
+      const result = await window.dataSdk.update(updatedRecord);
+      if (result.isOk) {
+        showToast('ไม่อนุมัติคำขอเรียบร้อย', '❌');
+        closeRejectModal();
+        closeDetailModal();
+      } else {
+        showToast('เกิดข้อผิดพลาด', '❌');
+      }
+    }
+
+    async function deleteRecord(recordId) {
+      const record = allRecords.find(r => r.__backendId === recordId);
+      if (!record) return;
+
+      const result = await window.dataSdk.delete(record);
+      if (result.isOk) {
+        showToast('ลบข้อมูลเรียบร้อย', '🗑️');
+        closeDetailModal();
+      } else {
+        showToast('เกิดข้อผิดพลาด', '❌');
+      }
+    }
+
+    // ==================== UI Updates ====================
+    function updateUI() {
+      if (currentUserType === 'student') {
+        updateStudentHistory();
+      } else if (currentUserType === 'admin') {
+        updateAdminUI();
+      }
+    }
+
+    function updateStudentHistory() {
+      const myRecords = allRecords.filter(r => r.student_id === currentUser.studentId)
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      
+      const listEl = document.getElementById('student-history-list');
+      const emptyEl = document.getElementById('student-history-empty');
+
+      if (myRecords.length === 0) {
+        listEl.innerHTML = '';
+        emptyEl.classList.remove('hidden');
+        return;
+      }
+
+      emptyEl.classList.add('hidden');
+      listEl.innerHTML = myRecords.map(record => `
+        <div class="bg-white rounded-xl p-4 shadow-md card-hover cursor-pointer" onclick="showDetailModal('${record.__backendId}')">
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                ${getStatusBadge(record.status)}
+                <span class="text-gray-500 text-sm">${formatDate(record.leave_date)}</span>
+              </div>
+              <p class="font-medium text-gray-800">${escapeHtml(record.reason)}</p>
+              <p class="text-sm text-gray-500 mt-1">เวลาออก: ${record.leave_time} น.</p>
+            </div>
+            <span class="text-2xl">${getStatusIcon(record.status)}</span>
+          </div>
+          ${record.status === 'rejected' && record.reject_note && record.reject_note !== 'ไม่มี' ? `
+            <div class="mt-3 p-3 bg-red-50 rounded-lg">
+              <p class="text-sm text-red-600"><strong>หมายเหตุ:</strong> ${escapeHtml(record.reject_note)}</p>
+            </div>
+          ` : ''}
+        </div>
+      `).join('');
+    }
+
+    function updateAdminUI() {
+      const pending = allRecords.filter(r => r.status === 'pending');
+      const approved = allRecords.filter(r => r.status === 'approved');
+      const rejected = allRecords.filter(r => r.status === 'rejected');
+
+      document.getElementById('stat-total').textContent = allRecords.length;
+      document.getElementById('stat-pending').textContent = pending.length;
+      document.getElementById('stat-approved').textContent = approved.length;
+      document.getElementById('stat-rejected').textContent = rejected.length;
+
+      const badge = document.getElementById('pending-badge');
+      if (pending.length > 0) {
+        badge.textContent = pending.length;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+
+      updatePendingList(pending);
+      filterAllRecords();
+    }
+
+    function updatePendingList(pending) {
+      const listEl = document.getElementById('pending-list');
+      const emptyEl = document.getElementById('pending-empty');
+
+      if (pending.length === 0) {
+        listEl.innerHTML = '';
+        emptyEl.classList.remove('hidden');
+        return;
+      }
+
+      emptyEl.classList.add('hidden');
+      listEl.innerHTML = pending.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .map(record => createRecordCard(record, true)).join('');
+    }
+
+    function filterAllRecords() {
+      const searchInput = document.getElementById('search-input');
+      const filterStatus = document.getElementById('filter-status');
+      
+      const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+      const statusFilter = filterStatus ? filterStatus.value : 'all';
+
+      let filtered = allRecords;
+
+      if (statusFilter !== 'all') {
+        filtered = filtered.filter(r => r.status === statusFilter);
+      }
+
+      if (searchTerm) {
+        filtered = filtered.filter(r => 
+          r.student_name.toLowerCase().includes(searchTerm) ||
+          r.student_id.includes(searchTerm)
+        );
+      }
+
+      const listEl = document.getElementById('all-records-list');
+      const emptyEl = document.getElementById('all-records-empty');
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = '';
+        emptyEl.classList.remove('hidden');
+        return;
+      }
+
+      emptyEl.classList.add('hidden');
+      listEl.innerHTML = filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .map(record => createRecordCard(record, false)).join('');
+    }
+
+    function createRecordCard(record, showActions) {
+      return `
+        <div class="bg-white rounded-xl p-4 shadow-md card-hover">
+          <div class="flex items-start justify-between">
+            <div class="flex-1" onclick="showDetailModal('${record.__backendId}')" style="cursor: pointer;">
+              <div class="flex items-center gap-2 mb-2">
+                ${getStatusBadge(record.status)}
+                <span class="text-gray-500 text-sm">${formatDate(record.leave_date)}</span>
+              </div>
+              <p class="font-semibold text-gray-800">${escapeHtml(record.student_name)}</p>
+              <p class="text-sm text-gray-500">รหัส: ${escapeHtml(record.student_id)} | ชั้น: ${escapeHtml(record.student_class)}</p>
+              <p class="text-sm text-gray-600 mt-1">📝 ${escapeHtml(record.reason)}</p>
+            </div>
+            ${showActions ? `
+              <div class="flex gap-2 ml-4">
+                <button onclick="event.stopPropagation(); approveRequest('${record.__backendId}')" 
+                  class="px-4 py-2 rounded-lg btn-success text-white font-medium text-sm hover:opacity-90">
+                  ✅ อนุมัติ
+                </button>
+                <button onclick="event.stopPropagation(); openRejectModal('${record.__backendId}')" 
+                  class="px-4 py-2 rounded-lg btn-danger text-white font-medium text-sm hover:opacity-90">
+                  ❌ ไม่อนุมัติ
+                </button>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    // ==================== Detail Modal ====================
+    function showDetailModal(recordId) {
+      const record = allRecords.find(r => r.__backendId === recordId);
+      if (!record) return;
+
+      const content = document.getElementById('detail-content');
+      content.innerHTML = `
+        <div class="text-center mb-6">
+          <h3 class="text-xl font-bold text-gray-800">รายละเอียดการขอลา</h3>
+          <div class="mt-2">${getStatusBadge(record.status)}</div>
+        </div>
+
+        <div class="space-y-4">
+          <div class="bg-purple-50 rounded-xl p-4">
+            <h4 class="font-semibold text-purple-800 mb-3">👤 ข้อมูลนักเรียน</h4>
+            <div class="grid grid-cols-2 gap-3 text-sm">
+              <p><span class="text-gray-500">ชื่อ:</span> ${escapeHtml(record.student_name)}</p>
+              <p><span class="text-gray-500">รหัส:</span> ${escapeHtml(record.student_id)}</p>
+              <p><span class="text-gray-500">ชั้น:</span> ${escapeHtml(record.student_class)}</p>
+            </div>
+          </div>
+
+          <div class="bg-blue-50 rounded-xl p-4">
+            <h4 class="font-semibold text-blue-800 mb-3">📅 รายละเอียดการลา</h4>
+            <div class="grid grid-cols-2 gap-3 text-sm">
+              <p><span class="text-gray-500">วันที่:</span> ${formatDate(record.leave_date)}</p>
+              <p><span class="text-gray-500">เวลาออก:</span> ${record.leave_time} น.</p>
+              ${record.return_time && record.return_time !== 'ไม่ระบุ' ? `<p><span class="text-gray-500">เวลากลับ:</span> ${record.return_time} น.</p>` : ''}
+            </div>
+            <p class="mt-2 text-sm"><span class="text-gray-500">เหตุผล:</span> ${escapeHtml(record.reason)}</p>
+          </div>
+
+          <div class="bg-green-50 rounded-xl p-4">
+            <h4 class="font-semibold text-green-800 mb-3">👨‍👩‍👧 ข้อมูลผู้ปกครอง</h4>
+            <div class="grid grid-cols-2 gap-3 text-sm">
+              <p><span class="text-gray-500">ชื่อ:</span> ${escapeHtml(record.guardian_name)}</p>
+              <p><span class="text-gray-500">ความสัมพันธ์:</span> ${escapeHtml(record.guardian_relation)}</p>
+              <p><span class="text-gray-500">เบอร���โทร:</span> ${escapeHtml(record.guardian_phone)}</p>
+            </div>
+            ${record.guardian_image && record.guardian_image !== 'ไม่มีรูปภาพ' ? `
+              <div class="mt-3">
+                <p class="text-sm text-gray-500 mb-2">📷 รูปถ่ายผู้ปกครอง:</p>
+                <img src="${record.guardian_image}" class="max-h-48 rounded-lg shadow" alt="รูปผู้ปกครอง" loading="lazy">
+              </div>
+            ` : ''}
+          </div>
+
+          ${record.status !== 'pending' ? `
+            <div class="${record.status === 'approved' ? 'bg-green-50' : 'bg-red-50'} rounded-xl p-4">
+              <h4 class="font-semibold ${record.status === 'approved' ? 'text-green-800' : 'text-red-800'} mb-3">
+                ${record.status === 'approved' ? '✅ การอนุมัติ' : '❌ กา��ไม่อนุมัติ'}
+              </h4>
+              <div class="text-sm">
+                <p><span class="text-gray-500">โดย:</span> ${escapeHtml(record.approved_by)}</p>
+                <p><span class="text-gray-500">เ��ื่อ:</span> ${formatDateTime(record.approved_at)}</p>
+                ${record.reject_note && record.reject_note !== 'ไม่มี' ? `<p class="mt-2"><span class="text-gray-500">หมายเหตุ:</span> ${escapeHtml(record.reject_note)}</p>` : ''}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+
+        ${currentUserType === 'admin' ? `
+          <div class="flex gap-3 mt-6">
+            ${record.status === 'pending' ? `
+              <button onclick="approveRequest('${record.__backendId}')" 
+                class="flex-1 py-3 rounded-xl btn-success text-white font-medium">
+                ✅ อนุมัติ
+              </button>
+              <button onclick="openRejectModal('${record.__backendId}')" 
+                class="flex-1 py-3 rounded-xl btn-danger text-white font-medium">
+                ❌ ไม่อนุมัติ
+              </button>
+            ` : `
+              <button onclick="deleteRecord('${record.__backendId}')" 
+                class="flex-1 py-3 rounded-xl bg-gray-200 text-gray-700 font-medium hover:bg-gray-300">
+                🗑️ ลบข้อมูล
+              </button>
+            `}
+          </div>
+        ` : ''}
+      `;
+
+      document.getElementById('detail-modal').classList.remove('hidden');
+    }
+
+    function closeDetailModal() {
+      document.getElementById('detail-modal').classList.add('hidden');
+    }
+
+    // ==================== Utilities ====================
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function getStatusBadge(status) {
+      const badges = {
+        pending: '<span class="px-3 py-1 rounded-full text-xs font-medium text-white status-pending">⏳ รอตรวจสอบ</span>',
+        approved: '<span class="px-3 py-1 rounded-full text-xs font-medium text-white status-approved">✅ อนุมัติแล้ว</span>',
+        rejected: '<span class="px-3 py-1 rounded-full text-xs font-medium text-white status-rejected">❌ ไม่อนุ��ัติ</span>'
+      };
+      return badges[status] || badges.pending;
+    }
+
+    function getStatusIcon(status) {
+      const icons = { pending: '⏳', approved: '✅', rejected: '❌' };
+      return icons[status] || '⏳';
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '-';
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
+    function formatDateTime(dateStr) {
+      if (!dateStr || dateStr === 'ไม่มี') return '-';
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('th-TH', { 
+        year: 'numeric', month: 'long', day: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+    }
+
+    function showToast(message, icon = '✅') {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-message').textContent = message;
+      document.getElementById('toast-icon').textContent = icon;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 3000);
+    }
+
+    // Initialize on load
+    document.addEventListener('DOMContentLoaded', initApp);
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c0eac0c135d7334',t:'MTc2ODkxMzE2MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
