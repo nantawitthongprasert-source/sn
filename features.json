@@ -1,0 +1,45 @@
+{
+  "persistence_enabled": true,
+  "app_name": "ระบบลากลับบ้านระหว่างวัน",
+  "avoids_browser_dialogs": true,
+  "avoids_viewport_units": true,
+  "verified_data_sdk_usage": true,
+  "verified_editable_features_usage": true,
+  "data_paradigm": "B",
+  "schema": {
+    "__backendId": "string",
+    "student_id": "string",
+    "student_name": "string",
+    "student_class": "string",
+    "leave_date": "string",
+    "leave_time": "string",
+    "return_time": "string",
+    "reason": "string",
+    "guardian_name": "string",
+    "guardian_relation": "string",
+    "guardian_phone": "string",
+    "guardian_image": "string",
+    "status": "string",
+    "reject_note": "string",
+    "approved_by": "string",
+    "approved_at": "string",
+    "created_at": "string"
+  },
+  "edit_panel": {
+    "header_label": {
+      "type": "label",
+      "text": "ตั้งค่าระบบ",
+      "size": "large"
+    },
+    "school_name": {
+      "type": "text_input",
+      "label": "ชื่อโรงเรียน",
+      "placeholder": "โรงเรียน..."
+    },
+    "system_title": {
+      "type": "text_input",
+      "label": "ชื่อระบบ",
+      "placeholder": "ระบบลากลับบ้าน..."
+    }
+  }
+}
